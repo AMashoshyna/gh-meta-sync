@@ -1,0 +1,19 @@
+{
+  "name": "gh-meta-sync",
+  "version": "1.0.0",
+  "description": "Web service that syncs GitHub repo metadata from config files",
+  "bugs": "https://github.com/Kottans/gh-meta-sync/issues",
+  "license": "MIT",
+  "author": "Kottans gang",
+  "repository": "Kottans/gh-meta-sync",
+  "scripts": {
+    "test": "mocha"
+  },
+  "dependencies": {
+    "got": "^6"
+  },
+  "devDependencies": {
+    "mocha": "^3",
+    "nock": "^9"
+  }
+}
