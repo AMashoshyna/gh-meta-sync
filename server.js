@@ -1,15 +1,18 @@
+"use strict"
+
 const http = require("http")
 const url = require("url")
 const fetch = require("node-fetch")
+const { atob } = require("./helpers")
 
 const api = "https://api.github.com"
 const repo = "/repos/octocat/hello-world"
 
+
 function webhook(request, response) {
-  console.log("Request handler 'webhook' was called.")
   return getCommitChanges()
     .then(result => {
-      let payload = { description: result.content }
+      let payload = JSON.stringify(atob(result.content))
       return setRepoDescription(payload)
     })
 }
@@ -19,28 +22,26 @@ function getCommitChanges() {
   const options = {
     method: "GET"
   }
-  return fetch(url, options)
+  return fetch(url, options).then(response => response.json())
 }
 
 function setRepoDescription(description) {
   const url = `${api}${repo}`
   const options = {
     method: "PATCH",
-    body: description,
+    body: JSON.stringify(JSON.parse(JSON.parse(description))),
   }
   return fetch(url, options)
 }
 
 function onRequest(request, response) {
   const pathname = url.parse(request.url).pathname
-  console.log(`Request for ${pathname} received.`)
   const handle = {}
   handle["/webhook"] = webhook
   route(handle, pathname, response, request)
 }
 
 function route(handle, pathname, response, request) {
-  console.log(`About to route a request for ${pathname}`)
   if (typeof handle[pathname] === "function") {
     handle[pathname](response, request)
   } else {
