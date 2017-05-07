@@ -35,6 +35,7 @@ describe(path, () => {
     })
 
     let patchDesc = nock(api)
+      .log(console.log)
       .patch(repo, body => {
         return body.description == description
       })
