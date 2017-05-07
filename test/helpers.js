@@ -1,9 +1,7 @@
 "use strict"
 const got = require("got")
-const hook = {
-  port: process.env.PORT || 3000,
-  path: "webhook",
-}
+const port = process.env.PORT || 3000
+const hook = `http://localhost:${port}/webhook`
 
 const btoa = str => {
   return Buffer.from(str).toString("base64")
