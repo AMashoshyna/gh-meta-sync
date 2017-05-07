@@ -20,7 +20,7 @@ function webhook(request, response) {
 function getCommitChanges() {
   const url = `${api}${repo}/contents/package.json`
   const options = {
-    method: "GET"
+    method: "GET",
   }
   return fetch(url, options).then(response => response.json())
 }
