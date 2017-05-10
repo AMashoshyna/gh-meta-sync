@@ -7,29 +7,30 @@ const { atob } = require("./helpers")
 
 const api = "https://api.github.com"
 const repo = "/repos/octocat/hello-world"
+const metaDataPath = "package.json"
 
 
 function webhook(request, response) {
-  return getCommitChanges()
+  return getMetaData()
     .then(result => {
-      let payload = JSON.stringify(atob(result.content))
+      let payload = atob(result.content)
       return setRepoDescription(payload)
     })
 }
 
-function getCommitChanges() {
-  const url = `${api}${repo}/contents/package.json`
+function getMetaData() {
+  const url = `${api}${repo}/contents/${metaDataPath}`
   const options = {
     method: "GET",
   }
   return fetch(url, options).then(response => response.json())
 }
 
-function setRepoDescription(description) {
+function setRepoDescription(str) {
   const url = `${api}${repo}`
   const options = {
     method: "PATCH",
-    body: JSON.stringify(JSON.parse(JSON.parse(description))),
+    body: JSON.stringify(JSON.parse(str)),
   }
   return fetch(url, options)
 }
