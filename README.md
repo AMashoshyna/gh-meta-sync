@@ -12,7 +12,7 @@ Providing meta information to GitHub repository can be automated. This service, 
 - Service can be integrated and configured via it's own web-interface (jekyll, login with GitHub account)
 
 ### Possible enhancements
-- add support for composer/gemfile
+- add support for composer/gemspec
 - add sync for topics  
 
 ### Usage
