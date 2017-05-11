@@ -13,7 +13,7 @@ Providing meta information to GitHub repository can be automated. This service, 
 
 ### Possible enhancements
 - add support for composer/gemspec
-- add sync for topics  
+- add sync for topics
 
 ### Usage
 TBA
