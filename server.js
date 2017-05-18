@@ -6,28 +6,23 @@ const fetch = require("node-fetch")
 const { atob } = require("./helpers")
 
 const api = "https://api.github.com"
-const repo = "/repos/octocat/hello-world"
+const repo = "octocat/hello-world"
 const metaDataPath = "package.json"
 
 
-function webhook(request, response) {
-  return getMetaData()
-    .then(result => {
-      let payload = atob(result.content)
-      return setRepoDescription(payload)
-    })
+async function webhook(request, response) {
+  const result = await r()
+  const payload = atob(result.content)
+  return setRepoDescription(payload)
 }
 
-function getMetaData() {
-  const url = `${api}${repo}/contents/${metaDataPath}`
-  const options = {
-    method: "GET",
-  }
-  return fetch(url, options).then(response => response.json())
+function r() {
+  const url = `${api}/repos/${repo}/contents/${metaDataPath}`
+  return fetch(url).then(response => response.json())
 }
 
 function setRepoDescription(str) {
-  const url = `${api}${repo}`
+  const url = `${api}/repos/${repo}`
   const options = {
     method: "PATCH",
     body: JSON.stringify(JSON.parse(str)),
