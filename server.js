@@ -11,14 +11,14 @@ const metaDataPath = "package.json"
 
 
 async function webhook(request, response) {
-  const result = await r()
+  const result = await getMetaData()
   const payload = atob(result.content)
   return setRepoDescription(payload)
 }
 
-function r() {
+function getMetaData() {
   const url = `${api}/repos/${repo}/contents/${metaDataPath}`
-  return fetch(url).then(response => response.json())
+  return fetch(url).then(r => r.json())
 }
 
 function setRepoDescription(str) {
