@@ -7,17 +7,36 @@ const { atob } = require("./helpers")
 
 const api = "https://api.github.com"
 const repo = "octocat/hello-world"
-const metaDataPath = "package.json"
-
-
-async function webhook(request, response) {
-  const result = await getMetaData()
-  const payload = atob(result.content)
-  return setRepoDescription(payload)
+const supported = {"package.json": true}
+const getDescr = {
+  "package.json": pkg => {
+    let {description} = JSON.parse(pkg)
+    return {description}
+  }
 }
 
-function getMetaData() {
-  const url = `${api}/repos/${repo}/contents/${metaDataPath}`
+function webhook(request, response) {
+  request.on("data", data => {
+  const configFiles = data.body.commits
+    .filter(commit => commit.added.filter(path => supported[path])[0])
+
+    if(configFiles.length) {
+      return configFiles.map(async config => {
+       const path = config.path
+       const result = await getMetaData(path)
+       const payload = atob(getDescr[path](result))
+       return setRepoDescription(payload)
+      })
+    }
+  })
+}
+
+function filterCommits(commits) {
+return commits.filter(obj => obj.added["package.json"])
+}
+
+function getMetaData(path) {
+  const url = `${api}/repos/${repo}/contents/${path}`
   return fetch(url).then(r => r.json())
 }
 
