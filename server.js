@@ -7,39 +7,59 @@ const { atob } = require("./helpers")
 
 const api = "https://api.github.com"
 const repo = "octocat/hello-world"
-const metaDataPath = "package.json"
-
-
-async function webhook(request, response) {
-  const result = await getMetaData()
-  const payload = atob(result.content)
-  return setRepoDescription(payload)
+const getDescr = {
+  "package.json": pkg => {
+    let { description } = JSON.parse(pkg)
+    return { description }
+  }
 }
 
-function getMetaData() {
-  const url = `${api}/repos/${repo}/contents/${metaDataPath}`
-  return fetch(url).then(r => r.json())
+function* getMetadataFiles(addedFiles) {
+  for (let file of addedFiles) {
+    if (file in getDescr) yield file
+  }
 }
 
-function setRepoDescription(str) {
+function* getFiles(body) {
+  for (let commit of body.commits) {
+    if (commit.added) yield* getMetadataFiles(commit.added)
+  }
+}
+
+function getMetaData(path) {
+  const url = `${api}/repos/${repo}/contents/${path}`
+  return fetch(url)
+    .then(r => r.json())
+}
+
+function setRepoDescription(obj) {
   const url = `${api}/repos/${repo}`
   const options = {
     method: "PATCH",
-    body: JSON.stringify(JSON.parse(str)),
+    body: JSON.stringify(obj),
   }
   return fetch(url, options)
 }
 
-function onRequest(request, response) {
-  const pathname = url.parse(request.url).pathname
-  const handle = {}
-  handle["/webhook"] = webhook
-  route(handle, pathname, response, request)
-}
+function webhook(request, response) {
+  request.on("data", data => {
+    async function setData() {
+      for (let file of getFiles(JSON.parse(atob(data)))) {
+        if (!(file in getDescr)) continue
+        let { content } = await getMetaData(file)
+        let meta = getDescr[file](atob(content))
+        setRepoDescription(meta)
+      }
+    }
+    setData().then(_ => {
+      response.writeHead(200, { 'Content-Type': 'text/plain' });
+      response.end('ok');
+    })
+})}
 
-function route(handle, pathname, response, request) {
+function route(handle, pathname, request, response) {
   if (typeof handle[pathname] === "function") {
-    handle[pathname](response, request)
+    handle[pathname](request, response)
   } else {
     console.log(`No request handler found for ${pathname}`)
     response.writeHead(404, { "Content-Type": "text/html" })
@@ -47,6 +67,14 @@ function route(handle, pathname, response, request) {
     response.end()
   }
 }
+
+function onRequest(request, response) {
+  const pathname = url.parse(request.url).pathname
+  const handle = {}
+  handle["/webhook"] = webhook
+  route(handle, pathname, request, response)
+}
+
 
 const server = http.createServer(onRequest)
 exports.listen = port => {
