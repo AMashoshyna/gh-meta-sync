@@ -6,6 +6,16 @@ const {listen, close} = require("./../server")
 
 const path = "package.json"
 const contents = `${repo}/contents/${path}`
+const response =  {
+        commits: [{
+          added: [path],
+          modified: [],
+        },
+        {
+added:["README.MD"],
+modified: []
+        }],
+      }
 
 describe(path, () => {
   beforeEach(() => {
@@ -26,12 +36,7 @@ describe(path, () => {
       })
 
     emit({
-      body: {
-        commits: [{
-          added: [path],
-          modified: [],
-        }],
-      },
+      body: JSON.stringify(response)
     })
 
     let patchDesc = nock(api)

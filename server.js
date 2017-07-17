@@ -7,28 +7,34 @@ const { atob } = require("./helpers")
 
 const api = "https://api.github.com"
 const repo = "octocat/hello-world"
-const supported = {"package.json": true}
 const getDescr = {
   "package.json": pkg => {
-    let {description} = JSON.parse(pkg)
-    return {description}
+    let { description } = JSON.parse(pkg)
+    return { description }
   }
 }
 
+const isConfig = fileName => {console.log("filename", fileName, typeof getDescr[fileName] === "function"); return typeof getDescr[fileName] === "function"}
+const commitFilter = commit => ["added", "removed", "modified"]
+.filter(status => commit[status])
+.reduce((cur, next) => commit[cur].some(isConfig) || commit[next].some(isConfig))
+
 function webhook(request, response) {
   request.on("data", data => {
-  const configFiles = data.body.commits
-    .filter(commit => commit.added.filter(path => supported[path])[0])
+const commitsWithMetaData =JSON.parse(atob(data)).commits.filter(commitFilter)
 
-    if(configFiles.length) {
-      return configFiles.map(async config => {
-       const path = config.path
+    if(commitsWithMetaData.length) {
+      return commitsWithMetaData.map(async commit => {
+       const path = commit.added[0]
        const result = await getMetaData(path)
-       const payload = atob(getDescr[path](result))
+       const payload = (getDescr[path](atob(result.content)))
        return setRepoDescription(payload)
       })
     }
   })
+  response.writeHead(200)
+  response.end()
+
 }
 
 function filterCommits(commits) {
@@ -37,14 +43,15 @@ return commits.filter(obj => obj.added["package.json"])
 
 function getMetaData(path) {
   const url = `${api}/repos/${repo}/contents/${path}`
-  return fetch(url).then(r => r.json())
+  return fetch(url)
+  .then(r => r.json())
 }
 
-function setRepoDescription(str) {
+function setRepoDescription(obj) {
   const url = `${api}/repos/${repo}`
   const options = {
     method: "PATCH",
-    body: JSON.stringify(JSON.parse(str)),
+    body: JSON.stringify(obj),
   }
   return fetch(url, options)
 }
@@ -53,12 +60,12 @@ function onRequest(request, response) {
   const pathname = url.parse(request.url).pathname
   const handle = {}
   handle["/webhook"] = webhook
-  route(handle, pathname, response, request)
+  route(handle, pathname, request, response)
 }
 
-function route(handle, pathname, response, request) {
+function route(handle, pathname, request, response) {
   if (typeof handle[pathname] === "function") {
-    handle[pathname](response, request)
+    handle[pathname](request, response)
   } else {
     console.log(`No request handler found for ${pathname}`)
     response.writeHead(404, { "Content-Type": "text/html" })
