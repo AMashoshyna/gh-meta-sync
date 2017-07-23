@@ -14,56 +14,22 @@ const getDescr = {
   }
 }
 
-const isConfig = fileName => {console.log("filename", fileName, typeof getDescr[fileName] === "function"); return typeof getDescr[fileName] === "function"}
-const commitFilter = commit => ["added", "removed", "modified"]
-.filter(status => commit[status])
-.reduce((cur, next) => commit[cur].some(isConfig) || commit[next].some(isConfig))
-
-function webhook(request, response) {
-  request.on("data", data => {
-function* getFiles(body) {
-  for (let commit of body.commits) {
-    if (commit.added !== undefined) yield commit
+function* getMetadataFiles(addedFiles) {
+  for (let file of addedFiles) {
+    if (file in getDescr) yield file
   }
 }
-async function setData() {
-  console.log(JSON.parse(atob(data)))
-for (let file of getFiles(JSON.parse(atob(data)))) {
-  console.log(file)
-	if (!(file in getDescr)) continue
 
-	let content = await getMetaData(file)
-	let meta = getDescr[file](atob(result.content))
-	setRepoDescription(meta)
-}
-  return setData()
- response.writeHead(200)
-  response.end()
-}
-// const commitsWithMetaData =JSON.parse(atob(data)).commits.filter(commitFilter)
-
-//     if(commitsWithMetaData.length) {
-//       return commitsWithMetaData.map(async commit => {
-//        const path = commit.added[0]
-//        const result = await getMetaData(path)
-//        const payload = (getDescr[path](atob(result.content)))
-//        return setRepoDescription(payload)
-//       })
-//     }
-//   })
-  // response.writeHead(200)
-  // response.end()
-
-})}
-
-function filterCommits(commits) {
-return commits.filter(obj => obj.added["package.json"])
+function* getFiles(body) {
+  for (let commit of body.commits) {
+    if (commit.added) yield* getMetadataFiles(commit.added)
+  }
 }
 
 function getMetaData(path) {
   const url = `${api}/repos/${repo}/contents/${path}`
   return fetch(url)
-  .then(r => r.json())
+    .then(r => r.json())
 }
 
 function setRepoDescription(obj) {
@@ -75,12 +41,21 @@ function setRepoDescription(obj) {
   return fetch(url, options)
 }
 
-function onRequest(request, response) {
-  const pathname = url.parse(request.url).pathname
-  const handle = {}
-  handle["/webhook"] = webhook
-  route(handle, pathname, request, response)
-}
+function webhook(request, response) {
+  request.on("data", data => {
+    async function setData() {
+      for (let file of getFiles(JSON.parse(atob(data)))) {
+        if (!(file in getDescr)) continue
+        let { content } = await getMetaData(file)
+        let meta = getDescr[file](atob(content))
+        setRepoDescription(meta)
+      }
+    }
+    setData().then(_ => {
+      response.writeHead(200, { 'Content-Type': 'text/plain' });
+      response.end('ok');
+    })
+})}
 
 function route(handle, pathname, request, response) {
   if (typeof handle[pathname] === "function") {
@@ -92,6 +67,14 @@ function route(handle, pathname, request, response) {
     response.end()
   }
 }
+
+function onRequest(request, response) {
+  const pathname = url.parse(request.url).pathname
+  const handle = {}
+  handle["/webhook"] = webhook
+  route(handle, pathname, request, response)
+}
+
 
 const server = http.createServer(onRequest)
 exports.listen = port => {
