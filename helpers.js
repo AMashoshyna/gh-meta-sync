@@ -7,3 +7,9 @@ exports.btoa = str => {
 exports.atob = str => {
   return Buffer.from(str, "base64").toString("utf-8")
 }
+
+module.exports.getServerBase = (server)=> {
+  const { family, address, port } = server.address()
+  const hostname = family === "IPv4" ? address : `[${address}]`
+  return `http://${hostname}:${port}`
+}

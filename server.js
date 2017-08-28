@@ -1,9 +1,9 @@
 "use strict"
 
 const http = require("http")
-const url = require("url")
+const { URL } = require("url")
 const fetch = require("node-fetch")
-const { atob } = require("./helpers")
+const { atob, getServerBase } = require("./helpers")
 
 const api = "https://api.github.com"
 const repo = "octocat/hello-world"
@@ -32,7 +32,7 @@ function getMetaData(path) {
     .then(r => r.json())
 }
 
-function setRepoDescription(obj) {
+function setRepoMeta(obj) {
   const url = `${api}/repos/${repo}`
   const options = {
     method: "PATCH",
@@ -42,19 +42,15 @@ function setRepoDescription(obj) {
 }
 
 function webhook(request, response) {
-  request.on("data", data => {
-    async function setData() {
+  request.on("data", async data => {
       for (let file of getFiles(JSON.parse(atob(data)))) {
         if (!(file in getDescr)) continue
         let { content } = await getMetaData(file)
         let meta = getDescr[file](atob(content))
-        setRepoDescription(meta)
+        setRepoMeta(meta)
       }
-    }
-    setData().then(_ => {
       response.writeHead(200, { 'Content-Type': 'text/plain' });
       response.end('ok');
-    })
 })}
 
 function route(handle, pathname, request, response) {
@@ -69,12 +65,12 @@ function route(handle, pathname, request, response) {
 }
 
 function onRequest(request, response) {
-  const pathname = url.parse(request.url).pathname
+  const base = getServerBase(server)
+  const  { pathname } = new URL(request.url, base)
   const handle = {}
   handle["/webhook"] = webhook
   route(handle, pathname, request, response)
 }
-
 
 const server = http.createServer(onRequest)
 exports.listen = port => {
