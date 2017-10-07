@@ -1,55 +1,75 @@
 "use strict"
 
 const http = require("http")
-const url = require("url")
+const { URL } = require("url")
 const fetch = require("node-fetch")
-const { atob } = require("./helpers")
+const { atob, getServerBase } = require("./helpers")
 
 const api = "https://api.github.com"
-const repo = "/repos/octocat/hello-world"
-
-
-function webhook(request, response) {
-  return getCommitChanges()
-    .then(result => {
-      let payload = JSON.stringify(atob(result.content))
-      return setRepoDescription(payload)
-    })
-}
-
-function getCommitChanges() {
-  const url = `${api}${repo}/contents/package.json`
-  const options = {
-    method: "GET"
+const repo = "octocat/hello-world"
+const getDescr = {
+  "package.json": pkg => {
+    let { description } = JSON.parse(pkg)
+    return { description }
   }
-  return fetch(url, options).then(response => response.json())
 }
 
-function setRepoDescription(description) {
-  const url = `${api}${repo}`
+function* getMetadataFiles(addedFiles) {
+  for (let file of addedFiles) {
+    if (file in getDescr) yield file
+  }
+}
+
+function* getFiles(body) {
+  for (let commit of body.commits) {
+    if (commit.added) yield* getMetadataFiles(commit.added)
+  }
+}
+
+function getMetaData(path) {
+  const url = `${api}/repos/${repo}/contents/${path}`
+  return fetch(url)
+    .then(r => r.json())
+}
+
+function setRepoMeta(obj) {
+  const url = `${api}/repos/${repo}`
   const options = {
     method: "PATCH",
-    body: JSON.stringify(JSON.parse(JSON.parse(description))),
+    body: JSON.stringify(obj),
   }
   return fetch(url, options)
 }
 
-function onRequest(request, response) {
-  const pathname = url.parse(request.url).pathname
-  const handle = {}
-  handle["/webhook"] = webhook
-  route(handle, pathname, response, request)
-}
+function webhook(request, response) {
+  request.on("data", async data => {
+      for (let file of getFiles(JSON.parse(atob(data)))) {
+        if (!(file in getDescr)) continue
+        let { content } = await getMetaData(file)
+        let meta = getDescr[file](atob(content))
+        setRepoMeta(meta)
+      }
+      response.writeHead(200, { 'Content-Type': 'text/plain' });
+      response.end('ok');
+})}
 
-function route(handle, pathname, response, request) {
+function route(handle, pathname, request, response) {
   if (typeof handle[pathname] === "function") {
-    handle[pathname](response, request)
+    handle[pathname](request, response)
   } else {
     console.log(`No request handler found for ${pathname}`)
     response.writeHead(404, { "Content-Type": "text/html" })
     response.write("404 Not found")
     response.end()
   }
+}
+
+function onRequest(request, response) {
+  const base = getServerBase(server)
+  const  { pathname } = new URL(request.url, base)
+  const handle = {}
+  handle["/webhook"] = webhook
+  route(handle, pathname, request, response)
 }
 
 const server = http.createServer(onRequest)
